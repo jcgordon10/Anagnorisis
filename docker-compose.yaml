@@ -50,3 +50,55 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
       - RUNNING_IN_DOCKER=true
       - CONTAINER_NAME=anagnorisis-app
+
+  # Gemma-4 descriptor sidecar: llama.cpp server (OpenAI-compatible API).
+  # The app talks to it over the compose network at http://llamacpp:8080
+  # (see omni.backend / omni.llamacpp in config.yaml). Host port 8080 is
+  # for debugging only.
+  llamacpp:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: anagnorisis-llamacpp
+    restart: unless-stopped # recover automatically if a request OOMs the server
+    command:
+      - -hf
+      - unsloth/gemma-4-E4B-it-qat-GGUF:UD-Q4_K_XL
+      - --mmproj
+      - /models/mmproj-F16.gguf
+      - --spec-type
+      - draft-mtp
+      - --spec-draft-n-max
+      - "4"
+      - -ngl
+      - "8"
+      # Hybrid split: 8 transformer layers (~1 GB) plus the mmproj
+      # vision/audio encoders (~1 GB) stay on the GPU for fast encoding
+      # and decent decode; the remaining ~3 GB of weights lives in
+      # system RAM. Target sidecar footprint ≈ 2.5 GB, leaving the
+      # app's embedder (~2.2 GB) and desktop (~1.1 GB) room to coexist.
+      - -c
+      - "6144"
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - -t
+      - "10"
+    volumes:
+      - llamacpp-hf:/root/.cache
+      - /home/jgordon/Anagnorisis-config/llamacpp:/models:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - HF_HUB_OFFLINE=0
+
+volumes:
+  llamacpp-hf:

@@ -59,10 +59,17 @@ omni: # The descriptor: writes the natural-language description of a file.
   # That description is what metadata search indexes, what the evaluator rates
   # from, and the only thing remote servers publish about a file — so it is the
   # one representation shared between machines running different models.
+  backend: llamacpp # transformers (in-process, OOMs on 8 GB) | llamacpp (sidecar)
+  llamacpp:
+    endpoint: http://llamacpp:8080
+    model: unsloth/gemma-4-E4B-it-qat-GGUF:UD-Q4_K_XL
+    timeout_seconds: 600
+    max_text_chars: 12000
+    token_budget_multiplier: 3
   model_name: "google/gemma-4-E2B-it"
   load_in_4bit: true # 4-bit NF4: ~6.7 GB of VRAM, peaking near 6.9 GB while it
                      # writes. Unquantized needs 11 GB and will not fit an 8 GB card.
-  cpu_offload_embeddings: false # Escape hatch for cards under ~8 GB: moves the
+  cpu_offload_embeddings: true # Escape hatch for cards under ~8 GB: moves the
                      # big embedding table into system RAM, cutting VRAM to
                      # ~2.2 GB. Measured ~20x slower (6s -> 125s per
                      # description), because the table is read once per token.
@@ -77,7 +84,7 @@ omni: # The descriptor: writes the natural-language description of a file.
   video_frames_per_window: 4
   video_sample_max_size: 512 # Max dimension (width or height) for video frame sampling to the omni descriptor
   image_max_size: 512 # Max dimension (width or height) for input images to the omni descriptor
-  min_free_vram_to_run: 7168 # Refuse to load with less than this much free VRAM,
+  min_free_vram_to_run: 3000 # Refuse to load with less than this much free VRAM,
                      # in MB. Measured peak is 6842 MB, so on an 8 GB card this
                      # effectively means "only when nothing else is resident" —
                      # correct, since the descriptor and the embedder cannot
@@ -95,7 +102,8 @@ evaluator:
   text_embedding_method: "full_text"
 metadata_search:
   # Auto-desc scheduler — runs OmniDescriptor on local files only.
-  # Set to null/0 to disable.
+  # Re-enabled: descriptions now run on the llamacpp sidecar, whose
+  # ~2.4 GB hybrid footprint leaves the app's embedder room to park.
   auto_description_interval_minutes: 20
   auto_description_batch_size: 100
   # Metadata-embedding scheduler — runs TextEmbedder on local + remote files.

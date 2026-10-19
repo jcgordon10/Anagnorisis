@@ -75,6 +75,16 @@ omni: # The descriptor: writes the natural-language description of a file.
   # That description is what metadata search indexes, what the evaluator rates
   # from, and the only thing remote servers publish about a file — so it is the
   # one representation shared between machines running different models.
+  backend: transformers # transformers (in-process) | llamacpp (sidecar server)
+  llamacpp: # Used only when backend is llamacpp.
+    endpoint: http://llamacpp:8080 # Sidecar address from inside compose network
+    model: unsloth/gemma-4-E4B-it-qat-GGUF:UD-Q4_K_XL # Informational: baked into cache keys
+    timeout_seconds: 600 # One description can take minutes on big windows
+    max_text_chars: 12000 # Truncate texts past this before sending (ctx is small)
+    # The model thinks into a separate reasoning field that still consumes
+    # the token budget, so request Nx the configured max_tokens to leave
+    # room for the actual description.
+    token_budget_multiplier: 3
   model_name: "google/gemma-4-E2B-it"
   load_in_4bit: true # 4-bit NF4: ~6.7 GB of VRAM, peaking near 6.9 GB while it
                      # writes. Unquantized needs 11 GB and will not fit an 8 GB card.
