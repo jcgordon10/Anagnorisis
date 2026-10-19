@@ -38,10 +38,20 @@ class _UniversalEvaluatorImpl:
 
     def __init__(self):
         # Deferred imports: these happen in the subprocess, not the main process.
+        import os
         import torch
         from anagnorisis_core.models.scoring_models import TransformerEvaluator, configure_device
 
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        # ANAGNORISIS_EVALUATOR_DEVICE=cpu parks this tiny model (11-class
+        # head over 1024-dim embeddings) in RAM and frees ~0.5 GB of VRAM
+        # permanently — a CUDA context alone costs more than its weights.
+        # Predictions are small matmuls; training is infrequent and still
+        # fast enough on CPU. Default keeps the old CUDA behavior.
+        forced = os.environ.get('ANAGNORISIS_EVALUATOR_DEVICE', '').strip().lower()
+        if forced in ('cpu', 'cuda'):
+            device = forced
+        else:
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
         configure_device(device)
         print(f"[UniversalEvaluator Worker] Initialised on {device}")
 

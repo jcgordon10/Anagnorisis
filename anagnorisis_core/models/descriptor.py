@@ -835,7 +835,19 @@ def _worker_loop(input_queue, output_queue, cfg):
     ensure_writable_cache_dirs(cfg, 'OmniDescriptor')
 
     try:
-        descriptor = _OmniDescriptorImpl(cfg)
+        backend = ''
+        try:
+            backend = (cfg.omni.get('backend', 'transformers') or 'transformers')
+        except Exception:
+            pass
+        if str(backend).lower() == 'llamacpp':
+            from anagnorisis_core.models.descriptor_llamacpp import (
+                _LlamaCppDescriptorImpl,
+            )
+            print("OmniDescriptor: using llamacpp sidecar backend.")
+            descriptor = _LlamaCppDescriptorImpl(cfg)
+        else:
+            descriptor = _OmniDescriptorImpl(cfg)
 
         while True:
             try:

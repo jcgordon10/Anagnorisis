@@ -140,8 +140,27 @@ class MemorySystem:
         method_name = models.describe_method_for(media_type.name if media_type else None)
         if method_name is None:
             return ''
+        parked = False
         try:
             method = getattr(self._omni, method_name)
+
+            def _parked_call(fn, *args, **kwargs):
+                # Park the embedder, but only when a descriptor run is
+                # really happening: its load-time peak does not fit next
+                # to a resident embedder on an 8 GB card (same pattern as
+                # the scheduled describe pass). Short text never reaches
+                # the model, so it must not pay for parking. No reload
+                # here: the proxy respawns the worker transparently on
+                # the next embed call.
+                nonlocal parked
+                if not parked:
+                    try:
+                        get_omni_embedder(self.cfg).unload()
+                    except Exception as exc:
+                        print(f"[MemorySystem] Could not park embedder before describe: {exc}")
+                    parked = True
+                return fn(*args, **kwargs)
+
             if method_name == 'describe_text':
                 content = description.read_text_content(file_path)
                 # Short text is its own description. Summarising it spends a
@@ -150,9 +169,10 @@ class MemorySystem:
                 # MetadataSearch apply. Injected rather than called directly so
                 # this decides whether to spend model time, not how.
                 text, _summarised = description.body_for_text(
-                    content or '', cfg=self.cfg, summarise=method)
+                    content or '', cfg=self.cfg,
+                    summarise=lambda c: _parked_call(method, c))
             else:
-                text = method(file_path)
+                text = _parked_call(method, file_path)
             return (text or '').strip()
         except Exception as exc:
             print(f"[MemorySystem] Omni description failed for {file_path}: {exc}")

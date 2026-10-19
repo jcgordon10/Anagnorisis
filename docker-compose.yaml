@@ -50,3 +50,34 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=all
       - RUNNING_IN_DOCKER=true
       - CONTAINER_NAME=anagnorisis-app
+      # Park the tiny evaluator model on CPU: frees ~0.5 GB VRAM for the
+      # sidecar. Predictions are small matmuls; training still works on CPU.
+      - ANAGNORISIS_EVALUATOR_DEVICE=cpu
+
+  # Gemma-4 descriptor sidecar: llama-swap manages a llama-server worker,
+  # loading the model on first request and unloading it after 300 s idle
+  # (process exit => VRAM fully released). The app talks to this proxy at
+  # http://llamacpp:8080 (see omni.backend / omni.llamacpp in config.yaml).
+  # Host port 8080 is for debugging only.
+  llamacpp:
+    image: ghcr.io/mostlygeek/llama-swap:unified-cuda13
+    container_name: anagnorisis-llamacpp
+    restart: unless-stopped # recover automatically if a request OOMs the server
+    environment:
+      - LLAMA_SWAP_CONFIG=/config/llama-swap.yaml
+      - LLAMA_SWAP_LISTEN=0.0.0.0:8080
+      - LLAMA_SWAP_WATCH_CONFIG=false
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    volumes:
+      - /home/jgordon/Anagnorisis-config/llamacpp/llama-swap.yaml:/config/llama-swap.yaml:ro
+      - /home/jgordon/Anagnorisis-config/llamacpp/models:/models:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
