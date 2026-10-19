@@ -78,10 +78,7 @@ omni: # The descriptor: writes the natural-language description of a file.
   backend: transformers # transformers (in-process) | llamacpp (sidecar server)
   llamacpp: # Used only when backend is llamacpp.
     endpoint: http://llamacpp:8080 # Sidecar address from inside compose network
-<<<<<<< HEAD
     model_alias: gemma-e4b # llama-swap model id: routes + lazy-loads on this
-=======
->>>>>>> origin/main
     model: unsloth/gemma-4-E4B-it-qat-GGUF:UD-Q4_K_XL # Informational: baked into cache keys
     timeout_seconds: 600 # One description can take minutes on big windows
     max_text_chars: 12000 # Truncate texts past this before sending (ctx is small)
