@@ -136,10 +136,14 @@ class _LlamaCppDescriptorImpl:
         multiplier = int(llamacpp_cfg.get('token_budget_multiplier', 3)
                          if hasattr(llamacpp_cfg, 'get') else 3)
         base_tokens = max_new_tokens or omni.get('max_new_tokens', 256)
+<<<<<<< HEAD
         model_alias = (llamacpp_cfg.get('model_alias', 'gemma-e4b')
                        if hasattr(llamacpp_cfg, 'get') else 'gemma-e4b')
         payload = {
             "model": model_alias,  # llama-swap routes (and lazy-loads) on this
+=======
+        payload = {
+>>>>>>> origin/main
             "messages": [{"role": "user", "content": content_parts}],
             "max_tokens": base_tokens * multiplier,
             "stream": False,
